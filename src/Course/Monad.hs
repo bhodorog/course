@@ -63,13 +63,25 @@ infixr 1 =<<
 --
 -- >>> ((*) <*> (+2)) 3
 -- 15
+-- (=<<) ::
+--   (a -> f b)
+--   -> f a
+--   -> f b
 (<*>) ::
   Monad f =>
   f (a -> b)
   -> f a
   -> f b
-(<*>) =
-  error "todo: Course.Monad#(<*>)"
+-- (<*>) g x = (\p -> p <$> x) =<< g
+--                             this  bind f (a -> b) to second param of =<<
+--                             which in turns transforms the first param of =<< into
+--                             (a -> b -> f b)
+
+-- or using >>= which is (flip =<<)
+k <*> a =
+  k >>= \p ->
+  a >>= \q ->
+  pure (p q)
 
 infixl 4 <*>
 
@@ -82,7 +94,7 @@ instance Monad Id where
     (a -> Id b)
     -> Id a
     -> Id b
-  (=<<) =
+  (=<<) = 
     error "todo: Course.Monad (=<<)#instance Id"
 
 -- | Binds a function on a List.
@@ -106,10 +118,19 @@ instance Monad Optional where
     (a -> Optional b)
     -> Optional a
     -> Optional b
-  (=<<) =
-    error "todo: Course.Monad (=<<)#instance Optional"
 
--- | Binds a function on the reader ((->) t).
+  (=<<) = bindOptional
+-- revisit the hell out of this one!
+    -- error "todo: Course.Monad (=<<)#instance Optional"
+
+  -- (=<<) f x = underfined <$> x
+--          :: a -> b
+-- ? a -> Optional b ???? a -> b . b -> Optional b
+-- a -> Optional b is a -> b . pure
+-- a -> Optional b is pure (a -> b)
+-- 
+
+-- | binds a function on the reader ((->) t).
 --
 -- >>> ((*) =<< (+10)) 7
 -- 119
@@ -118,8 +139,21 @@ instance Monad ((->) t) where
     (a -> ((->) t b))
     -> ((->) t a)
     -> ((->) t b)
-  (=<<) =
-    error "todo: Course.Monad (=<<)#instance ((->) t)"
+    -- (a -> t -> b)
+    -- -> (t -> a)
+    -- -> (t -> b)
+
+    -- (a -> t -> b) -> (t -> a) -> t -> b
+  f =<< g =
+    \u -> f (g u) u
+-- revisit the f... out of this
+    
+--    f is (*) is a -> a -> a
+--    g is (+10) is a -> a
+--    u is 7
+--    g u is (+10) 7 => 70
+--    f 70 7
+--    ????
 
 -- | Flattens a combined structure to a single structure.
 --
@@ -152,8 +186,8 @@ join =
   f a
   -> (a -> f b)
   -> f b
-(>>=) =
-  error "todo: Course.Monad#(>>=)"
+(>>=) = flip (=<<)
+  -- error "todo: Course.Monad#(>>=)"
 
 infixl 1 >>=
 

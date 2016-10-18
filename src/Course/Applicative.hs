@@ -61,8 +61,8 @@ infixl 4 <*>
   (a -> b)
   -> f a
   -> f b
-(<$>) =
-  error "todo: Course.Applicative#(<$>)"
+(<$>) f u = (pure f) <*> u
+  -- error "todo: Course.Applicative#(<$>)"
 
 -- | Insert into Id.
 --
@@ -74,14 +74,12 @@ instance Applicative Id where
   pure ::
     a
     -> Id a
-  pure =
-    error "todo: Course.Applicative pure#instance Id"
+  pure = Id
   (<*>) :: 
     Id (a -> b)
     -> Id a
     -> Id b
-  (<*>) =
-    error "todo: Course.Applicative (<*>)#instance Id"
+  (<*>) (Id f) (Id x) = Id (f x)
 
 -- | Insert into a List.
 --
@@ -93,14 +91,22 @@ instance Applicative List where
   pure ::
     a
     -> List a
-  pure =
-    error "todo: Course.Applicative pure#instance List"
+  pure x = x :. Nil
   (<*>) ::
     List (a -> b)
     -> List a
     -> List b
-  (<*>) =
-    error "todo: Course.Apply (<*>)#instance List"
+  -- (<*>) _ Nil = Nil
+  -- (<*>) Nil _ = Nil
+  -- (<*>) (h1 :. t1) x@(h2 :. t2) =
+  --   h1 h2 :. (<*> h1 t2) ++ (<*> t1 x)
+
+  fs <*> as =
+    atMap fs (\f -> atMap as (\a -> pure (f a)))
+
+
+atMap :: List a -> (a -> List b) -> List b
+atMap = flip flatMap
 
 -- | Insert into an Optional.
 --
@@ -118,14 +124,16 @@ instance Applicative Optional where
   pure ::
     a
     -> Optional a
-  pure =
-    error "todo: Course.Applicative pure#instance Optional"
+  pure x = Full x
   (<*>) ::
     Optional (a -> b)
     -> Optional a
     -> Optional b
-  (<*>) =
-    error "todo: Course.Apply (<*>)#instance Optional"
+  Empty <*> _     = Empty
+  _     <*> Empty = Empty
+  Full f <*> Full x = Full (f x)
+
+  -- (<*>) f a = bindOptional (\a' -> a // see applyOptional
 
 -- | Insert into a constant function.
 --
@@ -149,14 +157,14 @@ instance Applicative ((->) t) where
   pure ::
     a
     -> ((->) t a)
-  pure =
-    error "todo: Course.Applicative pure#((->) t)"
+  pure a _ = a
   (<*>) ::
     ((->) t (a -> b))
     -> ((->) t a)
     -> ((->) t b)
-  (<*>) =
-    error "todo: Course.Apply (<*>)#instance ((->) t)"
+  (<*>) f g = \t -> f t (g t)
+
+  -- (<*>) f = flip f (f a)
 
 
 -- | Apply a binary function in the environment.
@@ -184,9 +192,8 @@ lift2 ::
   -> f a
   -> f b
   -> f c
-lift2 =
-  error "todo: Course.Applicative#lift2"
-
+lift2 g fa fb = g <$> fa <*> fb
+-- g <$> a is f (b -> c) which can be <*> to b
 -- | Apply a ternary function in the environment.
 --
 -- >>> lift3 (\a b c -> a + b + c) (Id 7) (Id 8) (Id 9)
@@ -216,8 +223,8 @@ lift3 ::
   -> f b
   -> f c
   -> f d
-lift3 =
-  error "todo: Course.Applicative#lift3"
+-- lift3 f a b c = f <$> a <*> b <*> c
+lift3 f a b c = lift2 f a b <*> c
 
 -- | Apply a quaternary function in the environment.
 --
@@ -249,8 +256,7 @@ lift4 ::
   -> f c
   -> f d
   -> f e
-lift4 =
-  error "todo: Course.Applicative#lift4"
+lift4 f fa fb fc fd = lift3 f fa fb fc <*> fd
 
 -- | Apply, discarding the value of the first argument.
 -- Pronounced, right apply.
@@ -275,8 +281,7 @@ lift4 =
   f a
   -> f b
   -> f b
-(*>) =
-  error "todo: Course.Applicative#(*>)"
+(*>) = lift2 (flip const)
 
 -- | Apply, discarding the value of the second argument.
 -- Pronounced, left apply.
@@ -301,8 +306,7 @@ lift4 =
   f b
   -> f a
   -> f b
-(<*) =
-  error "todo: Course.Applicative#(<*)"
+(<*) = lift2 const
 
 -- | Sequences a list of structures to a structure of list.
 --
@@ -324,8 +328,20 @@ sequence ::
   Applicative f =>
   List (f a)
   -> f (List a)
-sequence =
-  error "todo: Course.Applicative#sequence"
+
+-- pattern matching version
+sequence Nil = pure Nil
+sequence (h :. t) =
+  -- h :: f a
+  --           t :: List (f a)
+  --            sequence t :: f (List a)
+  lift2 (:.) h (sequence t)
+
+-- sequence = foldRight (lift2 (:.)) (pure Nil)
+-- transforms the standard (:.) ::  a ->    List a  -> List a         into
+--                              :: fa -> f (List a) -> f (List a)     which is 
+--                    lift2 (:.)
+
 
 -- | Replicate an effect a given number of times.
 --
@@ -348,7 +364,7 @@ replicateA ::
   Int
   -> f a
   -> f (List a)
-replicateA =
+replicateA n = 
   error "todo: Course.Applicative#replicateA"
 
 -- | Filter a list with a predicate that produces an effect.
