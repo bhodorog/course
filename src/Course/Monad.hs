@@ -94,8 +94,7 @@ instance Monad Id where
     (a -> Id b)
     -> Id a
     -> Id b
-  (=<<) = 
-    error "todo: Course.Monad (=<<)#instance Id"
+  (=<<) f (Id x) = f x
 
 -- | Binds a function on a List.
 --
@@ -106,8 +105,10 @@ instance Monad List where
     (a -> List b)
     -> List a
     -> List b
-  (=<<) =
-    error "todo: Course.Monad (=<<)#instance List"
+  -- (=<<) =
+  --   error "todo: Course.Monad (=<<)#instance List"
+  f =<< Nil       = Nil
+  f =<< (h :. t)  = (f h) ++ (f =<< t)
 
 -- | Binds a function on an Optional.
 --
@@ -145,15 +146,15 @@ instance Monad ((->) t) where
 
     -- (a -> t -> b) -> (t -> a) -> t -> b
   f =<< g =
-    \u -> f (g u) u
--- revisit the f... out of this
-    
+    \t -> f (g t) t
 --    f is (*) is a -> a -> a
 --    g is (+10) is a -> a
---    u is 7
---    g u is (+10) 7 => 70
---    f 70 7
---    ????
+--    t is 7
+--    (g t) apply t to g => (+10) 7 => 17
+--    f 17 t apply 17 and 7 to f => (*) 17 7 => 119
+-- before applying the final 7 we've got:
+-- \t -> (*) ((+10) t) t
+
 
 -- | Flattens a combined structure to a single structure.
 --

@@ -64,6 +64,11 @@ data Parser a = P {
   parse :: Input -> ParseResult a
 }
 
+-- de-sugared version of record syntax
+data Parserr a = P' (Input -> ParseResult a)
+parsee :: Parserr a -> Input -> ParseResult a
+parsee (P' f) = f
+
 -- | Produces a parser that always fails with @UnexpectedChar@ using the given character.
 unexpectedCharParser ::
   Char
@@ -319,8 +324,7 @@ satisfyy p =
 -- /Tip:/ Use the @satisfy@ function.
 is ::
   Char -> Parser Char
-is =
-  error "todo: Course.Parser#is"
+is c = satisfy (== c)
 
 -- | Return a parser that produces a character between '0' and '9' but fails if
 --
@@ -331,8 +335,7 @@ is =
 -- /Tip:/ Use the @satisfy@ and @Data.Char#isDigit@ functions.
 digit ::
   Parser Char
-digit =
-  error "todo: Course.Parser#digit"
+digit = satisfy isDigit
 
 -- | Return a parser that produces zero or a positive integer but fails if
 --
@@ -496,7 +499,7 @@ firstNameParser ::
 --   d <- list lower
 --   pure (c :. d)
 
--- this works becase non of the left side symbols in do notation appear on the right side !!??
+-- this works becase none of the left side symbols in do notation appear on the right side !!??
 firstNameParser = (:.) <$> upper <*> list lower
 
 -- | Write a parser for Person.surname.
@@ -515,8 +518,38 @@ firstNameParser = (:.) <$> upper <*> list lower
 -- True
 surnameParser ::
   Parser Chars
-surnameParser =
-  error "todo: Course.Parser#surnameParser"
+  -- upper (u) and then
+  -- exactly 5 lower (v) and then
+  -- 0 or more lower (w)
+  -- return (u :. v ++ w)
+
+-- explicit bind notation
+-- surnameParser =
+--   upper >>= \u ->
+--   thisMany 5 lower >>= \v ->
+--   list lower >>= \w ->
+--   puret (u :. v ++ w)
+
+-- do notation
+-- surnameParser = do
+--   u <- upper
+--   v <- thisMany 5 lower
+--   w <- list lower
+--   pure (u :. v ++ w)
+
+-- applicative because right side doesn't have any of the left side symbols
+surnameParser = pure (\u v w -> u :. v ++ w) <*> upper <*> thisMany 5 lower <*> list lower
+
+-- my punny trials
+-- surnameParser =
+-- surnameParser = sequenceParser (upper :. lower :. lower :. lower :. lower :. lower :. Nil)
+-- surnameParser = (:.) <$> upper <*> lower <*> lower <*> lower <*> lower <*> lower <*> list lower
+-- surnameParser =
+--   upper >>= \f ->
+--   lower >>= \o ->
+
+
+  -- error "todo: Course.Parser#surnameParser"
 
 -- | Write a parser for Person.smoker.
 --
@@ -534,8 +567,9 @@ surnameParser =
 -- True
 smokerParser ::
   Parser Char
-smokerParser =
-  error "todo: Course.Parser#smokerParser"
+smokerParser = is 'y' ||| is 'n'
+
+  
 
 -- | Write part of a parser for Person#phoneBody.
 -- This parser will only produce a string of digits, dots or hyphens.
@@ -556,8 +590,8 @@ smokerParser =
 -- Result >a123-456< ""
 phoneBodyParser ::
   Parser Chars
-phoneBodyParser =
-  error "todo: Course.Parser#phoneBodyParser"
+phoneBodyParser = list (digit ||| is '.' ||| is '-')
+  -- error "todo: Course.Parser#phoneBodyParser"
 
 -- | Write a parser for Person.phone.
 --
@@ -578,10 +612,18 @@ phoneBodyParser =
 -- True
 phoneParser ::
   Parser Chars
-phoneParser =
-  error "todo: Course.Parser#phoneParser"
+phoneParser = do
+  d <- digit
+  b <- phoneBodyParser
+  _ <- is '#'
+  pure (d :. b)
+  -- error "todo: Course.Parser#phoneParser"
 
--- | Write a parser for Person.
+phoneParserr = (\d p _ -> d :. p) <$> digit <*> phoneBodyParser <*> is '#'
+
+phoneParserrr = (:.) <$> digit <*> phoneBodyParser <* is '#'
+--                                                '<*' point towards the thing you want to keep
+-- -- | Write a parser for Person.
 --
 -- /Tip:/ Use @bindParser@,
 --            @valueParser@,
@@ -627,8 +669,33 @@ phoneParser =
 -- Result > rest< Person {age = 123, firstName = "Fred", surname = "Clarkson", smoker = 'y', phone = "123-456.789"}
 personParser ::
   Parser Person
-personParser =
-  error "todo: Course.Parser#personParser"
+personParser = do
+  ag <- ageParser
+  _  <- spaces1
+  fn <- firstNameParser
+  _  <- spaces1
+  sn <- surnameParser
+  _  <- spaces1
+  sm <- smokerParser
+  _  <- spaces1
+  pn <- phoneParser
+  pure (Person ag fn sn sm pn)
+  -- error "todo: Course.Parser#personParser"
+
+personParserr =
+  -- (\a f s sm p -> Person a f s sm p) <$>
+  Person <$>
+  ageParser <*>
+  spaces1 *>
+  firstNameParser <*>
+  spaces1 *>
+  surnameParser <*>
+  spaces1 *>
+  smokerParser <*>
+  spaces1 *>
+  phoneParser
+
+personsParser = list personParser
 
 -- Make sure all the tests pass!
 
@@ -665,5 +732,5 @@ instance Monad Parser where
     (a -> Parser b)
     -> Parser a
     -> Parser b
-  (=<<) =
-    error "todo: Course.Parser (=<<)#instance Parser"
+  (=<<) = bindParser
+    -- error "todo: Course.Parser (=<<)#instance Parser"

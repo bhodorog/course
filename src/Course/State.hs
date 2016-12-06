@@ -13,6 +13,7 @@ import Course.Functor
 import Course.Applicative
 import Course.Monad
 import qualified Data.Set as S
+import Data.Bool(bool)
 
 -- $setup
 -- >>> import Test.QuickCheck.Function
@@ -40,8 +41,16 @@ instance Functor (State s) where
     (a -> b)
     -> State s a
     -> State s b
-  (<$>) =
-    error "todo: Course.State#(<$>)"
+  -- (<$>) =
+  --     error "todo: Course.State#(<$>)"
+  -- f <$> State sfa = State (\i -> case sfa i of
+  --                            (aa, ss) -> ((f aa), ss))
+
+  f <$> State sfa =
+    State (\i ->
+             let (aa, ss ) = sfa i
+             in ((f aa), ss))
+    
 
 -- | Implement the `Applicative` instance for `State s`.
 --
@@ -58,14 +67,31 @@ instance Applicative (State s) where
   pure ::
     a
     -> State s a
-  pure =
-    error "todo: Course.State pure#instance (State s)"
+  pure aa = State (\ss -> (aa, ss))
+
+--      s -> (a, s)
   (<*>) ::
     State s (a -> b)
     -> State s a
     -> State s b 
-  (<*>) =
-    error "todo: Course.State (<*>)#instance (State s)"
+  -- (<*>) = 
+  --   error "todo: Course.State (<*>)#instance (State s)"
+
+  -- State sf <*> sa = State (\i -> case sa of
+  --                             (aa, ss) -> (, ss))
+  State sf <*> State sfa = 
+--   sf :: s -> (a -> b, s)
+    State (\i -> case sf i of
+              (fab, ss) -> case sfa ss of
+                (aa, sss) -> (fab aa, sss))
+
+-- same not using case .. of for pattern matching but using the result
+-- of the function application directly
+
+  -- State sf <*> State sfa =
+  --   State (\i -> let (fab, ss) = sf i in
+  --             let (aa, sss) = sfa ss in
+  --               (fab aa, sss)) 
 
 -- | Implement the `Bind` instance for `State s`.
 --
@@ -79,8 +105,22 @@ instance Monad (State s) where
     (a -> State s b)
     -> State s a
     -> State s b
-  (=<<) =
-    error "todo: Course.State (=<<)#instance (State s)"
+  -- (=<<) =
+  --   error "todo: Course.State (=<<)#instance (State s)"
+  mf =<< State sfa =
+-- mf stands for monad function
+-- sfa stands for State a function
+    State (\i -> case sfa i of
+              -- apply input to State_a function to obtain a (a, s) result
+              (aa, ss) -> runState (mf aa) ss)
+     -- deconstruct the result of the previous application with pattern matching
+     --             get the State_b value by applying monad function to aa
+     --      use runState accessor function to get the State_b underlying function
+
+-- State (\s -> let (a, t) = k, s
+--                  State l = f a
+--              in l t)
+
 
 -- | Run the `State` seeded with `s` and retrieve the resulting state.
 --
@@ -89,8 +129,28 @@ exec ::
   State s a
   -> s
   -> s
-exec =
-  error "todo: Course.State#exec"
+exec sa seed =
+  let (_, rs) = runState sa seed
+  in rs
+
+execc :: State s a -> s -> s
+execc = \sa seed -> snd (runState sa seed)
+
+-- execcc :: State s a -> s -> s
+-- execcc sa (State sf) =
+--   let (_, rs) = sf sa
+--   in rs
+
+execccc :: State s a -> s -> s
+execccc (State sf) seed = snd (sf seed)
+
+-- execcccc :: State s a -> s -> s
+-- execcccc = <$> . (<$>) snd)
+
+
+
+-- point free form is really ugly :(
+  -- error "todo: Course.State#exec"
 
 -- | Run the `State` seeded with `s` and retrieve the resulting value.
 --
@@ -99,17 +159,24 @@ eval ::
   State s a
   -> s
   -> a
-eval =
-  error "todo: Course.State#eval"
+eval sa seed =
+  let (b, _) = runState sa seed
+  in b
+
+
+evall (State sf) seed = fst (sf seed)
+ 
+evalll (State sf) = fst . sf
+ 
 
 -- | A `State` where the state also distributes into the produced value.
 --
 -- >>> runState get 0
 -- (0,0)
+-- s -> a, s
 get ::
   State s s
-get =
-  error "todo: Course.State#get"
+get = State (\ss -> (ss, ss))
 
 -- | A `State` where the resulting state is seeded with the given value.
 --
@@ -118,8 +185,10 @@ get =
 put ::
   s
   -> State s ()
-put =
-  error "todo: Course.State#put"
+-- put =
+--   error "todo: Course.State#put"
+put v = State (\_ -> ((), v))
+-- put = State . const . (,) ()
 
 -- | Find the first element in a `List` that satisfies a given predicate.
 -- It is possible that no element is found, hence an `Optional` result.
@@ -138,10 +207,16 @@ put =
 findM ::
   Monad f =>
   (a -> f Bool)
+--(a -> State (Set a) Bool)
   -> List a
   -> f (Optional a)
-findM =
-  error "todo: Course.State#findM"
+-- -> State (Set a) (Optional a)
+findM _ Nil = 
+  pure Empty
+findM p (h :. t) =
+  p h >>= \b -> bool (findM p t) (pure (Full h)) b
+
+  -- error "todo: Course.State#findM"
 
 -- | Find the first element in a `List` that repeats.
 -- It is possible that no element repeats, hence an `Optional` result.

@@ -121,7 +121,8 @@ void ::
   f a
   -> f ()
 void =
-  error "todo: Course.Functor#void"
+  (<$>) (\_ -> ())
+  -- error "todo: Course.Functor#void"
 
 -----------------------
 -- SUPPORT LIBRARIES --

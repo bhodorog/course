@@ -338,8 +338,8 @@ sequence (h :. t) =
   lift2 (:.) h (sequence t)
 
 -- sequence = foldRight (lift2 (:.)) (pure Nil)
--- transforms the standard (:.) ::  a ->    List a  -> List a         into
---                              :: fa -> f (List a) -> f (List a)     which is 
+-- transforms the standard (:.) ::   a ->    List a  -> List a         into
+--                              :: f a -> f (List a) -> f (List a)     which is 
 --                    lift2 (:.)
 
 
